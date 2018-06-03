@@ -1,5 +1,3 @@
-
-
 #!/usr/bin/env python3
 """A skeleton for a Python rsyslog output plugin with error handling
 and transaction support. Requires Python 3.
