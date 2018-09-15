@@ -936,8 +936,10 @@ finalize_it:
 ENDbeginTransaction
 
 
-BEGINdoAction
-CODESTARTdoAction
+BEGINcommitTransaction
+	unsigned msgNum;
+	uchar *msg;
+CODESTARTcommitTransaction
 	if(pWrkrData->pData->bForceSingleInst) {
 		CHKiConcCtrl(pthread_mutex_lock(pWrkrData->pData->pSingleChildMut));
 	}
@@ -945,27 +947,15 @@ CODESTARTdoAction
 		ABORT_FINALIZE(RS_RET_SUSPENDED);
 	}
 
-	CHKiRet(sendMessage(pWrkrData->pData, pWrkrData->pChildCtx, ppString[0]));
+	for(msgNum = 0 ; msgNum < nParams ; ++msgNum) {
+		msg = actParam(pParams, 1, msgNum, 0).param;
+		CHKiRet(sendMessage(pWrkrData->pData, pWrkrData->pChildCtx, msg));
 
-	if(pWrkrData->pData->bConfirmMessages) {
-		CHKiRet(readStatus(pWrkrData->pData, pWrkrData->pChildCtx));
-	} else if(pWrkrData->pData->bUseTransactions) {
-		/* ensure endTransaction will be called */
-		iRet = RS_RET_DEFER_COMMIT;
+		if(pWrkrData->pData->bConfirmMessages) {
+			CHKiRet(readStatus(pWrkrData->pData, pWrkrData->pChildCtx));
+		}
 	}
 
-finalize_it:
-	if(pWrkrData->pData->bForceSingleInst) {
-		pthread_mutex_unlock(pWrkrData->pData->pSingleChildMut);
-	}
-ENDdoAction
-
-
-BEGINendTransaction
-CODESTARTendTransaction
-	if(pWrkrData->pData->bForceSingleInst) {
-		CHKiConcCtrl(pthread_mutex_lock(pWrkrData->pData->pSingleChildMut));
-	}
 	if(!pWrkrData->pData->bUseTransactions) {
 		FINALIZE;
 	}
@@ -982,7 +972,7 @@ finalize_it:
 	if(pWrkrData->pData->bForceSingleInst) {
 		pthread_mutex_unlock(pWrkrData->pData->pSingleChildMut);
 	}
-ENDendTransaction
+ENDcommitTransaction
 
 
 BEGINfreeWrkrInstance
@@ -1171,10 +1161,9 @@ ENDmodExit
 
 BEGINqueryEtryPt
 CODESTARTqueryEtryPt
-CODEqueryEtryPt_STD_OMOD_QUERIES
+CODEqueryEtryPt_STD_OMODTX_QUERIES  /* we support the transactional interface */
 CODEqueryEtryPt_STD_OMOD8_QUERIES
 CODEqueryEtryPt_STD_CONF2_OMOD_QUERIES
-CODEqueryEtryPt_TXIF_OMOD_QUERIES /* we support the transactional interface */
 CODEqueryEtryPt_doHUP
 CODEqueryEtryPt_doHUPWrkr
 ENDqueryEtryPt
